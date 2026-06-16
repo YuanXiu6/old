@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<style>
+					body {
+						background-color: white; /* Ensure the iframe has a white background */
+					}
+				</style>
+				<script>
+					var Z_CDN_WHITELIST = [
+						'cdn.jsdelivr.net',
+						'cdnjs.cloudflare.com',
+						'cdn.tailwindcss.com',
+						'unpkg.com',
+						'fonts.googleapis.com',
+						'd3js.org',
+						'cdn.babylonjs.com',
+						'html2canvas.hertzen.com',
+						'code.jquery.com',
+						'cdn.datatables.net',
+						'kit.fontawesome.com',
+						'code.createjs.com',
+						'cdn.plot.ly',
+						'fonts.gstatic.com',
+						'www.rgraph.net',
+						'api.mapbox.com',
+						'polyfill.io',
+						'cdn.quilljs.com',
+						'picsum.photos',
+						'esm.sh'
+					];
+
+					function z_isUrlInWhitelist(url) {
+						if (!url || typeof url !== 'string') {
+							return false;
+						}
+						try {
+							const urlObj = new URL(url);
+							const hostname = urlObj.hostname;
+							return Z_CDN_WHITELIST.some(domain => hostname === domain);
+						} catch (e) {
+							return false;
+						}
+					}
+
+						function z_proxyCdnUrl(url) {
+						if (!url || !url.startsWith('http')) {
+							return url;
+						}
+							if (!z_isUrlInWhitelist(url)) {
+							return url;
+						}
+						if (!url.startsWith('https://artifacts-cdn.chatglm.site/')) {
+							return 'https://artifacts-cdn.chatglm.site/' + url;
+						}
+						return url;
+					}
+					
+					// 增强版外部链接拦截 - 适合放在模板字符串中
+					document.addEventListener('click', function (ev) {
+						try {
+							const anchor = ev.target?.closest?.('a[href]') || null;
+							if (!anchor) return;
+
+							let href = anchor.getAttribute('href')?.trim() || '';
+							if (!href) return;
+
+							if (href.startsWith('javascript:')) return;
+
+							// 新需求：href="#" 的链接完全阻止跳转和任何行为
+							if (href === '#') {
+								ev.preventDefault();
+								return;
+							}
+
+							// 处理其他内部锚点（如 #about、#contact 等）
+							if (href.startsWith('#')) {
+								const rawId = href.slice(1);
+								if (!rawId) return;
+
+								const id = decodeURIComponent(rawId);
+								const target = 
+									document.getElementById(id) ||
+									document.querySelector('a[name="' + id.replace(/"/g, '\"') + '"]') ||
+									document.querySelector('[name="' + id.replace(/"/g, '\"') + '"]');
+
+								if (target && target.scrollIntoView) {
+									ev.preventDefault();
+									try {
+										history.pushState(null, '', href);
+									} catch (e) {}
+									target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+								}
+								return;
+							}
+
+							// 处理外部链接
+							let url;
+							try {
+								url = new URL(href, window.location.href);
+							} catch (e) {
+								return;
+							}
+
+							if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+							const isExternal = url.hostname !== window.location.hostname;
+
+							if (isExternal || anchor.getAttribute('target') === '_blank') {
+								ev.preventDefault();
+								window.open(url.toString(), '_blank', 'noopener,noreferrer');
+							}
+
+						} catch (e) {
+							// 出错时不阻止默认行为
+						}
+					}, true);
+
+					// 1. 暴力清除函数：从 DOM 层面抹除 onclick 属性
+					var Z_removeInlineOnclick = function () {
+						// 专门锁定 href="#" 且带有 onclick 的 a 标签
+						const targetedLinks = document.querySelectorAll('a[href="#"][onclick]');
+						for (let i = 0; i < targetedLinks.length; i++) {
+							targetedLinks[i].removeAttribute('onclick');
+							targetedLinks[i].onclick = null; // 确保 JS 层的赋值也被清理
+						}
+					};
+					// 3. 动态监测：防止页面通过异步加载重新生成带 onclick 的元素
+					var z_observer = new MutationObserver(function () {
+						Z_removeInlineOnclick();
+					});
+
+					z_observer.observe(document.documentElement, {
+						childList: true,
+						subtree: true,
+						attributes: true,
+						attributeFilter: ['onclick']
+					});
+
+					// 4. 初始化执行一次
+					Z_removeInlineOnclick();
+
+					const Z_rawCreateElement = document.createElement;
+
+					document.createElement = function (tagName, ...args) {
+						const el = Z_rawCreateElement.call(this, tagName, ...args);
+
+						if (tagName.toLowerCase() === 'script') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let srcValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'src' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									srcValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'src', {
+								get: function() {
+									return srcValue || rawGetAttribute.call(this, 'src') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										srcValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'src', srcValue);
+									} else {
+										srcValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						if (tagName.toLowerCase() === 'link') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let hrefValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'href' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									hrefValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'href', {
+								get: function() {
+									return hrefValue || rawGetAttribute.call(this, 'href') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										hrefValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'href', hrefValue);
+									} else {
+										hrefValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						return el;
+					};
+
+					const Z_OriginalXMLHttpRequest = window.XMLHttpRequest;
+					window.XMLHttpRequest = function (...args) {
+						const xhr = new Z_OriginalXMLHttpRequest(...args);
+						const rawOpen = xhr.open;
+
+						xhr.open = function (method, url, ...rest) {
+							if (typeof url === 'string') {
+								const methodUpper = (method || '').toUpperCase();
+								if (methodUpper === 'GET' && z_isUrlInWhitelist(url)) {
+									url = z_proxyCdnUrl(url);
+								}
+							}
+							return rawOpen.call(this, method, url, ...rest);
+						};
+
+						return xhr;
+					};
+
+					window.XMLHttpRequest.prototype = Z_OriginalXMLHttpRequest.prototype;
+					Object.setPrototypeOf(window.XMLHttpRequest, Z_OriginalXMLHttpRequest);
+
+					const z_originalFetch = window.fetch;
+					window.fetch = async function (...args) {
+						if (args.length > 0) {
+							let url = '';
+							let method = 'GET';
+							
+							if (typeof args[0] === 'string') {
+								url = args[0];
+								if (args[1] && args[1].method) {
+									method = args[1].method.toUpperCase();
+								}
+								if (method === 'GET' && z_isUrlInWhitelist(url)) {
+									args[0] = z_proxyCdnUrl(url);
+								}
+							} else if (args[0] instanceof Request) {
+								const originalUrl = args[0].url;
+								method = (args[0].method || 'GET').toUpperCase();
+								if (method === 'GET' && z_isUrlInWhitelist(originalUrl)) {
+									const proxiedUrl = z_proxyCdnUrl(originalUrl);
+									if (proxiedUrl !== originalUrl) {
+										args[0] = new Request(proxiedUrl, args[0]);
+									}
+								}
+							}
+						}
+						return z_originalFetch.apply(this, args);
+					};
+				</script>
+			</head>
+			<body>
+				
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>智伴夕阳 - 尊享版</title>
+    <style>
+        /* ================= 全局变量与重置 ================= */
+        :root {
+            --primary-color: #E67E22; 
+            --primary-gradient: linear-gradient(135deg, #F39C12, #D35400);
+            --danger-color: #C0392B;  
+            --health-color: #27AE60;
+            --bg-gradient: linear-gradient(180deg, #FFF8E1 0%, #FFE0B2 100%);
+            --card-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            --text-main: #2C3E50;
+            --text-sub: #7F8C8D;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .hidden { display: none !important; }
+
+        /* ================= 毛玻璃顶部栏 ================= */
+        .top-bar {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            z-index: 50;
+            position: relative;
+        }
+        .time-display { font-size: 20px; font-weight: 600; color: var(--text-main); }
+        .sos-btn {
+            background: var(--danger-color); color: white; border: none;
+            padding: 8px 18px; border-radius: 25px; font-size: 16px; font-weight: 600;
+            box-shadow: 0 4px 10px rgba(192, 57, 43, 0.3);
+            cursor: pointer; transition: transform 0.1s;
+        }
+        .sos-btn:active { transform: scale(0.95); }
+
+        /* ================= 健康监控条 (优化卡片感) ================= */
+        .health-monitor-bar {
+            background: #fff; margin: 15px 20px; padding: 15px;
+            border-radius: 20px; display: flex; justify-content: space-around; 
+            align-items: center; box-shadow: var(--card-shadow);
+        }
+        .health-item { text-align: center; position: relative; }
+        .health-item:not(:last-child)::after {
+            content: ''; position: absolute; right: -20%; top: 20%; height: 60%; width: 1px; background: #eee;
+        }
+        .health-icon { font-size: 26px; margin-bottom: 5px; display: block; }
+        .beating { animation: heartbeat 1.2s infinite ease-in-out; color: var(--danger-color); text-shadow: 0 2px 5px rgba(192, 57, 43, 0.2); }
+        @keyframes heartbeat {
+            0% { transform: scale(1); } 14% { transform: scale(1.3); } 28% { transform: scale(1); } 42% { transform: scale(1.15); } 70% { transform: scale(1); }
+        }
+        .health-value { font-size: 24px; font-weight: 700; color: var(--text-main); letter-spacing: -0.5px; }
+        .health-label { font-size: 13px; color: var(--text-sub); margin-top: 4px; }
+
+        /* ================= 页面容器 ================= */
+        .page-container {
+            flex: 1; overflow-y: auto; padding: 0 20px 80px 20px;
+            scroll-behavior: smooth;
+        }
+        
+        /* 隐藏滚动条 */
+        .page-container::-webkit-scrollbar { display: none; }
+
+        /* --- 核心交互区 (首页) --- */
+        .core-actions {
+            display: flex; flex-direction: column; align-items: center; margin: 30px 0; gap: 25px;
+        }
+        .voice-btn-wrapper { position: relative; width: 190px; height: 190px; display: flex; justify-content: center; align-items: center; }
+        .voice-circle {
+            width: 170px; height: 170px; border-radius: 50%;
+            background: var(--primary-gradient); color: white;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            box-shadow: 0 15px 30px rgba(230, 126, 34, 0.4); cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; z-index: 2;
+        }
+        .voice-circle:active { transform: scale(0.9); }
+        .voice-icon { font-size: 55px; margin-bottom: 8px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+        .voice-text { font-size: 26px; font-weight: bold; letter-spacing: 2px; }
+        /* 语音波纹背景 */
+        .voice-ring-bg {
+            position: absolute; width: 100%; height: 100%; border-radius: 50%;
+            background: rgba(230, 126, 34, 0.15); z-index: 1; animation: pulse-ring 2s infinite;
+        }
+
+        .memo-entry-btn {
+            width: 85%; padding: 20px; background: #fff; border: 2px solid #FFE0B2;
+            border-radius: 50px; font-size: 20px; color: var(--primary-color);
+            display: flex; align-items: center; justify-content: center; gap: 12px; 
+            cursor: pointer; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            transition: background 0.2s;
+        }
+        .memo-entry-btn:active { background: #FFF8E1; }
+
+        /* --- 卡片与推荐 --- */
+        .section-title { font-size: 22px; font-weight: 700; margin-bottom: 15px; display: flex; align-items: center; color: var(--text-main); }
+        .section-title::before { content: ''; display: block; width: 6px; height: 24px; background: var(--primary-color); border-radius: 4px; margin-right: 10px; }
+        
+        .feature-card { 
+            background: #fff; border-radius: 24px; overflow: hidden; 
+            margin-bottom: 25px; box-shadow: var(--card-shadow); 
+            transition: transform 0.2s;
+        }
+        .feature-card:active { transform: scale(0.98); }
+        .card-img { width: 100%; height: 200px; object-fit: cover; }
+        .card-body { padding: 22px; }
+        .card-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; color: var(--text-main); }
+        .card-desc { font-size: 18px; color: var(--text-sub); margin-bottom: 20px; line-height: 1.5; }
+        .card-actions { display: flex; gap: 12px; }
+        .action-btn { 
+            flex: 1; padding: 14px; border-radius: 12px; border: none; 
+            font-size: 18px; font-weight: 600; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: opacity 0.2s;
+        }
+        .action-btn:active { opacity: 0.7; }
+        .btn-nav { background: var(--primary-gradient); color: white; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); }
+        .btn-memo { background: #F4F6F7; color: var(--text-main); }
+        .btn-detail { background: #3498DB; color: white; opacity: 0.9; }
+
+        /* --- 备忘录列表 --- */
+        .memo-list { list-style: none; padding: 0; margin: 0; }
+        .memo-item {
+            background: #fff; padding: 24px; border-radius: 20px; margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03); position: relative;
+            border-left: 6px solid var(--primary-color); transform: translateX(0); transition: transform 0.3s;
+        }
+        .memo-time { font-size: 14px; color: #999; margin-bottom: 8px; font-weight: 500; }
+        .memo-content { font-size: 20px; line-height: 1.6; color: #333; font-weight: 500; }
+        .memo-del {
+            position: absolute; top: 20px; right: 20px; color: #E0E0E0; font-size: 22px; 
+            cursor: pointer; border: none; background: none; transition: color 0.2s;
+        }
+        .memo-del:active { color: var(--danger-color); }
+        .add-memo-btn {
+            position: fixed; bottom: 90px; right: 25px; width: 64px; height: 64px;
+            background: var(--primary-gradient); border-radius: 50%; color: white;
+            font-size: 32px; border: none; box-shadow: 0 8px 20px rgba(230, 126, 34, 0.5); 
+            cursor: pointer; z-index: 60; display: flex; align-items: center; justify-content: center;
+        }
+
+        /* ================= AI 对话框 (升级版) ================= */
+        #ai-chat-box {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #F5F5F7; z-index: 200; display: flex; flex-direction: column;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+        #ai-chat-box.open { transform: translateY(0); }
+        .chat-header {
+            background: #fff; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between;
+            border-bottom: 1px solid rgba(0,0,0,0.05); box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+        }
+        .chat-title { font-size: 20px; font-weight: bold; color: var(--primary-color); display: flex; align-items: center; gap: 8px; }
+        .chat-close-btn { background: #f0f0f0; border: none; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; }
+        
+        .chat-body {
+            flex: 1; overflow-y: auto; padding: 25px;
+            display: flex; flex-direction: column; gap: 20px;
+        }
+        .chat-msg {
+            max-width: 85%; padding: 16px 20px; border-radius: 20px; font-size: 18px; line-height: 1.5;
+            position: relative; word-wrap: break-word;
+        }
+        .msg-ai { 
+            background: #fff; color: #333; align-self: flex-start; 
+            border-bottom-left-radius: 4px; box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+        }
+        .msg-user { 
+            background: var(--primary-gradient); color: white; align-self: flex-end; 
+            border-bottom-right-radius: 4px; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3);
+        }
+        
+        .chat-input-area {
+            background: #fff; padding: 15px 20px; display: flex; align-items: center; gap: 12px;
+            border-top: 1px solid rgba(0,0,0,0.05); padding-bottom: max(15px, env(safe-area-inset-bottom));
+        }
+        .chat-input { 
+            flex: 1; padding: 14px 20px; border: none; background: #F4F6F7; 
+            border-radius: 25px; font-size: 17px; outline: none; transition: background 0.2s;
+        }
+        .chat-input:focus { background: #fff; box-shadow: 0 0 0 2px rgba(230, 126, 34, 0.2); }
+        .chat-btn-circle {
+            width: 48px; height: 48px; border-radius: 50%; border: none; display: flex;
+            align-items: center; justify-content: center; font-size: 22px; cursor: pointer; transition: transform 0.1s;
+        }
+        .chat-send-btn { background: var(--primary-gradient); color: white; }
+        .chat-voice-btn { background: #E0E0E0; color: #555; }
+        .chat-btn-circle:active { transform: scale(0.9); }
+
+        /* ================= 底部导航 ================= */
+        nav {
+            height: 70px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-around; align-items: center;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.02);
+        }
+        .nav-item {
+            flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            cursor: pointer; transition: color 0.3s;
+        }
+        .nav-icon { font-size: 26px; margin-bottom: 4px; transition: transform 0.2s; }
+        .nav-text { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+        .nav-item.active .nav-text { color: var(--primary-color); }
+        .nav-item.active .nav-icon { color: var(--primary-color); transform: translateY(-2px); }
+
+        /* ================= 提示与关心 ================= */
+        .toast {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            background: rgba(44, 62, 80, 0.95); color: white; padding: 24px 32px;
+            border-radius: 20px; font-size: 19px; z-index: 1000; text-align: center; 
+            opacity: 0; pointer-events: none; transition: all 0.3s; min-width: 200px;
+            backdrop-filter: blur(5px); box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, -50%) scale(1); pointer-events: auto; }
+
+        .care-toast {
+            position: fixed; top: 100px; left: 5%; width: 90%;
+            background: #fff; border: 1px solid #27AE60; padding: 20px;
+            border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex; align-items: center; gap: 18px; z-index: 400;
+            transform: translateY(-150%); transition: transform 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .care-toast.show { transform: translateY(0); }
+        .care-icon { font-size: 40px; background: #E8F8F5; width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .care-content h3 { margin: 0 0 4px 0; color: #27AE60; font-size: 20px; }
+        .care-content p { margin: 0; color: #666; font-size: 15px; }
+
+        @keyframes pulse-ring { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.4); opacity: 0; } }
+
+    </style>
+
+
+
+    <!-- 顶部栏 -->
+    <div class="top-bar">
+        <div class="time-display" id="clock">09:41</div>
+        <button class="sos-btn" onclick="handleSOS()">🆘 紧急求助</button>
+    </div>
+
+    <!-- 健康监控条 -->
+    <div class="health-monitor-bar">
+        <div class="health-item">
+            <span class="health-icon beating">❤️</span>
+            <div class="health-value" id="val-hr">72</div>
+            <div class="health-label">心率</div>
+        </div>
+        <div class="health-item">
+            <span class="health-icon">🩸</span>
+            <div class="health-value" id="val-bp">120/80</div>
+            <div class="health-label">血压</div>
+        </div>
+        <div class="health-item">
+            <span class="health-icon">👣</span>
+            <div class="health-value" id="val-steps">1,240</div>
+            <div class="health-label">步数</div>
+        </div>
+    </div>
+
+    <!-- AI 关心提醒 -->
+    <div id="care-toast" class="care-toast">
+        <div class="care-icon">💧</div>
+        <div class="care-content">
+            <h3 id="care-title">该喝水了</h3>
+            <p id="care-desc">已经两小时没喝水了，身体需要水分哦。</p>
+        </div>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div id="toast" class="toast">提示信息</div>
+
+    <!-- 主页面：首页 -->
+    <div id="page-home" class="page-container">
+        <div class="core-actions">
+            <div class="voice-btn-wrapper" onclick="openAIChat()">
+                <div class="voice-ring-bg"></div>
+                <div class="voice-circle">
+                    <div class="voice-icon">🎤</div>
+                    <div class="voice-text">按住说话</div>
+                </div>
+            </div>
+            <div class="memo-entry-btn" onclick="switchToMemo()">
+                <span style="font-size:24px;">📝</span> 查看备忘录
+            </div>
+        </div>
+
+        <div class="section-title">今日推荐</div>
+        <!-- 卡片 1 -->
+        <div class="feature-card">
+            <img src="https://artifacts-cdn.chatglm.site/https://picsum.photos/seed/park_health/800/400" class="card-img" alt="公园">
+            <div class="card-body">
+                <div class="card-title">滨河公园晨练</div>
+                <div class="card-desc">监测到您久坐，建议去公园慢走20分钟，吸吸氧。</div>
+                <div class="card-actions">
+                    <button class="action-btn btn-nav" onclick="handleNavigate(&#39;滨河公园&#39;)">🧭 去这里</button>
+                    <button class="action-btn btn-memo" onclick="handleAddMemo(&#39;去滨河公园晨练&#39;)">📝 记下来</button>
+                    <button class="action-btn btn-detail" onclick="handleDetail(&#39;太极拳教学&#39;)">🔍 详情</button>
+                </div>
+            </div>
+        </div>
+        <!-- 卡片 2 -->
+        <div class="feature-card">
+            <img src="https://artifacts-cdn.chatglm.site/https://picsum.photos/seed/relax/800/400" class="card-img" alt="茶艺">
+            <div class="card-body">
+                <div class="card-title">社区茶艺会</div>
+                <div class="card-desc">下午2点，社区活动中心有免费茶艺体验。</div>
+                <div class="card-actions">
+                    <button class="action-btn btn-nav" onclick="handleNavigate(&#39;社区活动中心&#39;)">🧭 去这里</button>
+                    <button class="action-btn btn-memo" onclick="handleAddMemo(&#39;参加茶艺会&#39;)">📝 记下来</button>
+                    <button class="action-btn btn-detail" onclick="handleDetail(&#39;茶艺时间表&#39;)">🔍 详情</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主页面：备忘录页 -->
+    <div id="page-memos" class="page-container hidden">
+        <h2 class="section-title">我的备忘录</h2>
+        <ul id="memo-list-container" class="memo-list"></ul>
+        <div style="text-align:center; color:#BDC3C7; margin-top:60px; display:none;" id="empty-memo-tip">
+            <div style="font-size:40px; margin-bottom:10px;">📝</div>
+            <div>暂无备忘录，点击右下角添加</div>
+        </div>
+        <button class="add-memo-btn" onclick="openAIChat(&#39;memo&#39;)">+</button>
+    </div>
+
+    <!-- AI 对话框 -->
+    <div id="ai-chat-box">
+        <div class="chat-header">
+            <div class="chat-title">🤖 智能语音助手</div>
+            <button class="chat-close-btn" onclick="closeAIChat()">✕</button>
+        </div>
+        <div class="chat-body" id="chat-history">
+            <div class="chat-msg msg-ai">李爷爷，我在听。您可以按住麦克风说话，或者直接打字。</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-text-input" class="chat-input" placeholder="说点什么..." onkeypress="if(event.key===&#39;Enter&#39;) sendChat()">
+            <button class="chat-btn-circle chat-voice-btn" onmousedown="startVoice()" onmouseup="stopVoice()" ontouchstart="startVoice()" ontouchend="stopVoice()">🎤</button>
+            <button class="chat-btn-circle chat-send-btn" onclick="sendChat()">➤</button>
+        </div>
+    </div>
+
+    <!-- 导航弹窗 (复用样式) -->
+    <div id="nav-modal" class="care-toast" style="background: white; border-width: medium; border-style: none; border-color: currentcolor; border-image: initial; padding: 25px; text-align: center; color: rgb(51, 51, 51); top: 50%; transform: translate(-50%, -50%); display: none;">
+        <h2 style="color:#2980B9; margin:0 0 15px 0;">正在前往 <span id="nav-dest">滨河公园</span></h2>
+        <p style="font-size:18px; color:#666; margin-bottom:25px;">1. 出门向南直走 50米<br>2. 红绿灯左转<br>3. 步行10分钟到达</p>
+        <button class="action-btn btn-nav" style="width:100%; margin:0;" onclick="openSystemMap()">打开手机地图</button>
+        <button class="action-btn btn-memo" style="margin-top:10px; width:100%;" onclick="document.getElementById(&#39;nav-modal&#39;).style.display=&#39;none&#39;">关闭</button>
+    </div>
+
+    <!-- 底部导航 -->
+    <nav>
+        <div class="nav-item active" onclick="switchTab(&#39;home&#39;, this)">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-text">首页</div>
+        </div>
+        <div class="nav-item" onclick="switchTab(&#39;memos&#39;, this)">
+            <div class="nav-icon">📝</div>
+            <div class="nav-text">备忘</div>
+        </div>
+        <div class="nav-item" onclick="showToast(&#39;更多功能开发中&#39;)">
+            <div class="nav-icon">🛠️</div>
+            <div class="nav-text">工具</div>
+        </div>
+    </nav>
+
+    <script>
+        // ================= 数据与状态 =================
+        let memos = JSON.parse(localStorage.getItem('elderly_memos_v2')) || [];
+        const careMessages = [
+            { icon: "💧", title: "该喝水了", desc: "两小时没喝水了，身体需要水分。" },
+            { icon: "🧥", title: "注意保暖", desc: "室外温度降低了，出门记得加件外套。" },
+            { icon: "🦶", title: "起来走走", desc: "坐太久了，起来活动活动筋骨吧。" },
+            { icon: "💊", title: "吃药提醒", desc: "距离上次吃药已过4小时。" }
+        ];
+
+        // ================= 页面交互逻辑 =================
+        function switchTab(tabName, el) {
+            document.querySelectorAll('.page-container').forEach(p => p.classList.add('hidden'));
+            document.getElementById('page-' + tabName).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+            
+            if(tabName === 'memos') renderMemos();
+        }
+
+        function switchToMemo() {
+            const navItems = document.querySelectorAll('.nav-item');
+            switchTab('memos', navItems[1]);
+        }
+
+        // ================= AI 对话框逻辑 =================
+        function openAIChat(mode = 'chat') {
+            const box = document.getElementById('ai-chat-box');
+            box.classList.add('open');
+            const input = document.getElementById('chat-text-input');
+            setTimeout(() => input.focus(), 400);
+            if(mode === 'memo') input.value = "记一下，";
+        }
+
+        function closeAIChat() {
+            document.getElementById('ai-chat-box').classList.remove('open');
+        }
+
+        function appendChat(text, sender) {
+            const history = document.getElementById('chat-history');
+            const div = document.createElement('div');
+            div.className = `chat-msg msg-${sender}`;
+            div.innerText = text;
+            history.appendChild(div);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function sendChat() {
+            const input = document.getElementById('chat-text-input');
+            const text = input.value.trim();
+            if(!text) return;
+            
+            appendChat(text, 'user');
+            input.value = '';
+
+            setTimeout(() => {
+                let reply = "好的，我记住了。";
+                if (text.includes("记") || text.includes("备忘")) {
+                    const content = text.replace("记一下，", "").replace("帮我记", "").replace("记下来", "");
+                    if(content) {
+                        handleAddMemo(content, true);
+                        reply = "✅ 已经帮您记到备忘录里了。";
+                    }
+                } else if (text.includes("饿")) {
+                    reply = "是不是到饭点了？想吃点软糯的食物吗？";
+                } else if (text.includes("累")) {
+                    reply = "累了就休息一会儿，或者我放首戏给您听？";
+                }
+                appendChat(reply, 'ai');
+            }, 600);
+        }
+
+        // 语音
+        let recognition;
+        if ('webkitSpeechRecognition' in window) {
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false; recognition.lang = 'zh-CN';
+            recognition.onresult = e => {
+                document.getElementById('chat-text-input').value = e.results[0][0].transcript;
+                sendChat();
+            };
+        }
+        function startVoice() { if(recognition) recognition.start(); }
+        function stopVoice() { if(recognition) recognition.stop(); }
+
+        // ================= 备忘录逻辑 =================
+        function handleAddMemo(content, fromChat = false) {
+            if(!content) return;
+            const newMemo = { id: Date.now(), text: content, date: new Date().toLocaleString() };
+            memos.unshift(newMemo);
+            localStorage.setItem('elderly_memos_v2', JSON.stringify(memos));
+            if(!fromChat) showToast("✅ 已保存备忘");
+            renderMemos();
+        }
+
+        function renderMemos() {
+            const list = document.getElementById('memo-list-container');
+            const tip = document.getElementById('empty-memo-tip');
+            list.innerHTML = '';
+            if(memos.length === 0) tip.style.display = 'block';
+            else {
+                tip.style.display = 'none';
+                memos.forEach(memo => {
+                    const li = document.createElement('li');
+                    li.className = 'memo-item';
+                    li.innerHTML = `
+                        <div class="memo-time">${memo.date}</div>
+                        <div class="memo-content">${memo.text}</div>
+                        <button class="memo-del" onclick="deleteMemo(${memo.id})">🗑️</button>
+                    `;
+                    list.appendChild(li);
+                });
+            }
+        }
+
+        function deleteMemo(id) {
+            if(confirm("确定删除这条备忘吗？")) {
+                memos = memos.filter(m => m.id !== id);
+                localStorage.setItem('elderly_memos_v2', JSON.stringify(memos));
+                renderMemos();
+                showToast("已删除");
+            }
+        }
+
+        // ================= 其他功能 =================
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+        }
+        setInterval(updateClock, 1000); updateClock();
+
+        // 健康模拟
+        let steps = 1240; let baseHr = 72;
+        setInterval(() => {
+            baseHr = 70 + Math.floor(Math.random() * 10);
+            document.getElementById('val-hr').innerText = baseHr;
+            steps += Math.floor(Math.random() * 3);
+            document.getElementById('val-steps').innerText = steps.toLocaleString();
+        }, 3000);
+
+        // 关心提醒
+        function initCareReminders() {
+            setInterval(() => {
+                const msg = careMessages[Math.floor(Math.random() * careMessages.length)];
+                const toast = document.getElementById('care-toast');
+                document.getElementById('care-title').innerText = msg.title;
+                document.getElementById('care-desc').innerText = msg.desc;
+                toast.querySelector('.care-icon').innerText = msg.icon;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 8000);
+            }, 25000); // 25秒一次
+        }
+        setTimeout(initCareReminders, 5000);
+
+        // 导航
+        function handleNavigate(dest) {
+            document.getElementById('nav-dest').innerText = dest;
+            document.getElementById('nav-modal').style.display = 'block';
+        }
+        function openSystemMap() {
+            window.open('https://uri.amap.com/marker?position=&name='+document.getElementById('nav-dest').innerText, '_blank');
+            document.getElementById('nav-modal').style.display = 'none';
+        }
+        function handleDetail(t) { showToast("查看详情: " + t); }
+        function handleSOS() { if(confirm("确定发送求助？")) showToast("🚑 求助已发送！"); }
+
+    </script>
+
+
+			
+		
+</body></html>
